@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RockyLab · Real lab setup</title><link rel="stylesheet" href="style.css"></head><body><header><a class="brand" href="index.html#server"><b class="logo">&gt;_</b>Rocky<span>Lab</span></a><nav><a href="index.html#server">← My servers</a><a href="index.html#levels">Missions</a></nav></header><main class="page"><p class="eyebrow">REAL LAB / SETUP</p><h1>Your own Linux environment.</h1><p>Use a dedicated lab VM, not your everyday or production server. No machine is provisioned by opening this site.</p><section class="card"><h2>1. Prepare two Rocky hosts</h2><p>Install Rocky Linux 9 or 10 on two virtual machines. A practical starting size per VM is 2 vCPUs, 2–4 GB RAM and 25 GB disk. This is a lab sizing suggestion, not an official minimum. Use a private network or VPN and take a snapshot. Name them lab-a and lab-b; create a normal student account with sudo access.</p><pre class="code"># On both machines
+sudo dnf install cockpit openssh-server vim-enhanced
+sudo systemctl enable --now sshd cockpit.socket
+ip -br address
+sudo firewall-cmd --get-active-zones
+
+# If the default zone is the lab interface's zone:
+sudo firewall-cmd --add-service=ssh
+sudo firewall-cmd --permanent --add-service=ssh
+sudo firewall-cmd --add-service=cockpit
+sudo firewall-cmd --permanent --add-service=cockpit</pre><p>If the lab interface is in another zone, add --zone=YOUR_LAB_ZONE to those firewall commands. Do not expose the lab directly to arbitrary internet clients. Reach Cockpit at https://SERVER_ADDRESS:9090 using a certificate trusted by your browser. Log in with the normal system account and open Terminal.</p><p class="ar">إذا عندك Rocky على جهازك، نكدر نبدأ بيه. حتى يفتح من خارج البيت تحتاج وصول شبكة مناسب مثل VPN أو VPS. رابط GitHub للموقع ما يجعل الـVM المحلية متاحة من الإنترنت وحده.</p></section><section class="card"><h2>2. Prepare the course workspace</h2><pre class="code"># As student on lab-a
+mkdir -p ~/project/docs ~/shared
+printf '%s\n' 'Rocky Linux' > ~/project/docs/notes.txt
+cp ~/project/docs/notes.txt ~/project/docs/notes.backup
+printf '%s\n' 'first line' 'second line' > ~/notes.txt
+touch ~/report.txt
+chmod 640 ~/report.txt
+printf '%s\n' 'hostname' > ~/health.sh
+
+# Extra packages for advanced exercises
+sudo dnf install acl policycoreutils-python-utils tar gzip rsync \
+  chrony cronie at lvm2 curl man-db man-pages
+sudo systemctl enable --now chronyd crond atd</pre><p>These create the fixtures used by later lessons. Do user/group objectives before ACL exercises. Do the package/service lesson before web/SELinux/capstone exercises. Commands involving storage allocation require a separate disposable data disk; the supplied storage missions inspect existing state.</p></section><section class="card"><h2>3. Connect server A to server B with SSH</h2><pre class="code"># On lab-b, obtain its host fingerprint through its trusted console
+sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+
+# On lab-a: keep the private key here
+ssh-keygen -t ed25519 -f ~/.ssh/lab_key
+ssh-copy-id -i ~/.ssh/lab_key.pub student@SERVER_B_ADDRESS
+
+# In ~/.ssh/config on lab-a
+Host lab-b
+    HostName SERVER_B_ADDRESS
+    User student
+    IdentityFile ~/.ssh/lab_key
+    IdentitiesOnly yes
+
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/config ~/.ssh/lab_key
+ssh lab-b
+whoami
+hostname
+echo "$SSH_CONNECTION"
+exit</pre><p>Replace SERVER_B_ADDRESS. Compare the first connection fingerprint with the trusted-console result. Ed25519 is not appropriate in FIPS mode; select an approved RSA configuration there. On server B, ~/.ssh should normally be 700 and authorized_keys 600, owned by the login account.</p><p>For a passphrase-protected key, use an SSH agent on lab-a. The gateway service must explicitly have access to the intended agent socket, or the BatchMode exercise will fail. Never publish an unencrypted private key or disable host-key verification to make the check pass.</p></section><section class="card"><h2>4. Optional in-site command runner</h2><p>The project includes server/gateway.mjs. It is inactive until installed on your isolated Linux host. Run it as student, never root. A gateway access token gives command execution as that account; keep it private.</p><p>Install a supported Node.js version (20+) from your Rocky repositories, verify node --version, then copy the project to /opt/rockylab. The gateway uses built-in Node modules only.</p><pre class="code">node --version
+# Generate a token on the lab host. Keep the output private.
+openssl rand -hex 32
+
+# Create /etc/rockylab-gateway.env using sudoedit:
+LAB_TOKEN=PASTE_THE_GENERATED_TOKEN
+LAB_ORIGINS=https://YOUR_USERNAME.github.io
+LAB_PORT=8787
+
+# Use the source service file; adjust User/Group and node path if needed
+sudo chmod 600 /etc/rockylab-gateway.env
+sudo cp /opt/rockylab/server/rockylab-gateway.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now rockylab-gateway
+sudo systemctl status rockylab-gateway</pre><p>LAB_ORIGINS must contain exact website origins, without a path or trailing slash. For both your private Site and GitHub Pages, separate their exact origins with a comma. Never use *. The token is not saved by the website; reconnect after refreshing.</p><p>The gateway is bound to 127.0.0.1:8787. Put your existing trusted HTTPS reverse proxy in front of it and route /health, /run and /check to this loopback address. Example Caddy configuration for a domain you control:</p><pre class="code">lab.example.com {
+    reverse_proxy 127.0.0.1:8787
+}</pre><p>Use your actual DNS name and valid certificate. For a private-only lab, restrict access through your VPN and configure DNS/certificates accordingly. Do not make the raw loopback port listen publicly. The site’s My servers form takes the HTTPS URL and token, then verifies the gateway identity.</p></section><section class="card"><h2>5. Sudo and interactive commands</h2><p>The runner has no interactive password prompt. By default, perform privileged work in Cockpit with your normal sudo authentication. You can then use read-only checks in the website. If you need unattended privileged checks, deliberately configure only the required commands with visudo on the disposable lab; the project does not automatically grant passwordless sudo or install a broad sudoers rule.</p><p>Each request starts at the gateway user’s home directory in a fresh shell. Combine dependent commands in the same multiline submission. The runner caps a request at 20 seconds and 1 MiB output and terminates its process group. Use Cockpit for long package transactions, persistent jobs, Vim, top, passwd and interactive SSH.</p><p>For observation objectives, the checker looks for successful execution evidence from the runner. For mutation objectives, it checks the resulting files, modes, groups or service state. The evidence is intended for personal learning, not anti-cheat enforcement.</p></section><section class="card"><h2>6. Connection troubleshooting</h2><table><tr><th>Symptom</th><th>Check</th></tr><tr><td>Gateway request fails</td><td>HTTPS certificate, VPN/DNS reachability, service status, exact allowed origin.</td></tr><tr><td>401 response</td><td>Enter the actual token from your private environment file.</td></tr><tr><td>403 response</td><td>LAB_ORIGINS must include the site’s origin, not its repository path.</td></tr><tr><td>sudo needs a password</td><td>Use Cockpit, or intentionally authorize the specific lab command.</td></tr><tr><td>SSH BatchMode fails</td><td>Host key trust, public key, ownership/mode, ssh-agent, and lab-b alias.</td></tr><tr><td>Command stopped</td><td>Use Cockpit for work over 20 seconds or interactive prompts.</td></tr></table></section><footer>References: <a class="text-link" href="https://cockpit-project.org/running.html">Cockpit setup</a> · <a class="text-link" href="https://docs.rockylinux.org/guides/security/ssh_public_private_keys/">Rocky SSH guide</a> · <a class="text-link" href="https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages">GitHub Pages</a></footer></main></body></html>
+
