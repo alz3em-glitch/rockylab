@@ -1,0 +1,7 @@
+{
+  "name": "rockylab",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": { "gateway": "node server/gateway.mjs" }
+}
