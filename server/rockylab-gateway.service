@@ -1,0 +1,18 @@
+[Unit]
+Description=Personal RockyLab command gateway
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=student
+Group=student
+WorkingDirectory=/opt/rockylab
+EnvironmentFile=/etc/rockylab-gateway.env
+ExecStart=/usr/bin/node /opt/rockylab/server/gateway.mjs
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+[Install]
+WantedBy=multi-user.target
+
+
