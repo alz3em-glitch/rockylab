@@ -1,0 +1,48 @@
+export const stateChecks={
+'project-dir':'test -d "$HOME/project/docs"',
+'copy-note':'test "$(cat "$HOME/project/docs/notes.txt")" = "Rocky Linux" && cmp -s "$HOME/project/docs/notes.txt" "$HOME/project/docs/notes.backup"',
+'symlink':'test -L "$HOME/notes-link" && test "$(readlink "$HOME/notes-link")" = "$HOME/project/docs/notes.txt"',
+'two-lines':'test "$(cat "$HOME/notes.txt")" = "$(printf \'first line\\nsecond line\')"',
+'group-ops':'getent group ops >/dev/null',
+'user-trainee':'getent passwd trainee >/dev/null && test -d /home/trainee',
+'membership':'id -nG trainee | tr " " "\\n" | grep -qx ops',
+'private-report':'test -f "$HOME/report.txt" && test "$(stat -c %a "$HOME/report.txt")" = 600',
+'group-read':'test -f "$HOME/report.txt" && test "$(stat -c %a "$HOME/report.txt")" = 640',
+'sgid':'test -d "$HOME/shared" && test "$(stat -c %a "$HOME/shared")" = 2775',
+'web-enabled':'systemctl is-active --quiet httpd && systemctl is-enabled --quiet httpd',
+'httpd-package':'rpm -q httpd >/dev/null',
+'archive':'test -f "$HOME/project.tar.gz" && tar -tzf "$HOME/project.tar.gz" >/dev/null',
+'restore':'test -f "$HOME/restore/project/docs/notes.txt" && cmp -s "$HOME/project/docs/notes.txt" "$HOME/restore/project/docs/notes.txt"',
+'acl-grant':'getfacl -cp "$HOME/report.txt" | grep -q "^user:trainee:r--"',
+'script-file':'test "$(cat "$HOME/health.sh")" = hostname',
+'cap-service':'rpm -q httpd >/dev/null && systemctl is-active --quiet httpd && systemctl is-enabled --quiet httpd'
+};
+export const evidenceChecks={
+'kvm-inspect':/lsmod\s*\|\s*grep\s+kvm/,
+'vm-inventory':/virsh\s+-c\s+qemu:\/\/\/system\s+list\s+--all/,
+'vm-daemon':/systemctl\s+status\s+(?:virtqemud\.socket|libvirtd)/,
+'vnc-package':/rpm\s+-q\s+tigervnc-server/,
+'vnc-service':/systemctl\s+status\s+vncserver@:1(?:\.service)?/,
+'vnc-listener':/ss\s+-tlnp\s*\|\s*grep\s+5901/,
+'os':/cat\s+\/etc\/os-release/,'kernel':/uname\s+-r/,'builtin':/type\s+cd/,'hostname':/(?:^|&&\s*)hostname(?:\s|$)/,'rootmount':/findmnt\s+\//,'disks':/lsblk/,
+'identity':/whoami/,'cwd':/(?:^|&&\s*)pwd(?:\s|$)/,'etc-list':/cd\s+\/etc\s*&&\s*ls\s+-la/,
+'ls-help':/ls\s+--help/,'manual':/man\s+5\s+passwd/,'apropos':/apropos\s+password/,
+'grep-user':/grep\s+student\s+\/etc\/passwd/,'pipe-count':/cat\s+~\/notes.txt\s*\|\s*wc\s+-l/,
+'processes':/ps\s+aux/,'pgrep':/pgrep\s+-a\s+sshd/,'jobs':/sleep\s+300\s*&[\s\S]*jobs/,
+'service-status':/systemctl\s+status\s+sshd/,'unit-cat':/systemctl\s+cat\s+sshd/,
+'ip':/ip\s+-br\s+address/,'route':/ip\s+route/,'nmcli':/nmcli\s+connection\s+show\s+--active/,
+'rpm-bash':/rpm\s+-q\s+bash/,'rpm-owner':/rpm\s+-qf\s+\/usr\/bin\/ssh/,
+'ssh-config':/\/usr\/sbin\/sshd\s+-t/,'ssh-listen':/ss\s+-tlnp/,'ssh-remote':/ssh\s+-o\s+BatchMode=yes\s+lab-b/,
+'ssh-logs':/journalctl\s+-u\s+sshd/,'logger':/logger\s+-p\s+user.notice/,'time':/timedatectl/,
+'find-text':/find\s+~\s+-name\s+["']?\*\.txt/,'cut-users':/cut\s+-d\s+:\s+-f\s+1\s+\/etc\/passwd/,
+'unique-users':/cut[\s\S]*\|\s*sort\s*\|\s*uniq/,'archive-list':/tar\s+-tzf\s+~\/project.tar.gz/,
+'acl-read':/getfacl\s+~\/report.txt/,'acl-verify':/getfacl\s+~\/report.txt/,
+'selinux-mode':/getenforce/,'selinux-label':/ls\s+-Zd\s+\/var\/www\/html/,'selinux-preview':/restorecon\s+-nRv\s+\/var\/www\/html/,
+'fw-zones':/firewall-cmd\s+--get-active-zones/,'fw-services':/firewall-cmd\s+--list-services/,'fw-permanent':/firewall-cmd\s+--permanent\s+--list-services/,
+'disk-types':/lsblk\s+-f/,'capacity':/df\s+-h/,'inodes':/df\s+-i/,'pvs':/\bpvs\b/,'vgs':/\bvgs\b/,'lvs-swap':/\blvs\b[\s\S]*swapon\s+--show/,
+'cron':/crontab\s+-l/,'timers':/systemctl\s+list-timers\s+--all/,'chrony':/chronyc\s+sources\s+-v/,
+'script-syntax':/bash\s+-n\s+~\/health.sh/,'script-run':/bash\s+~\/health.sh/,
+'cap-http':/curl\s+-I\s+http:\/\/127\.0\.0\.1/,'cap-logs':/journalctl\s+-u\s+httpd/
+};
+export function evidencePass(key,records){return records.some(r=>evidenceChecks[key]?.test(r.command)&&(r.code===0||(key==='cron'&&r.code===1&&/no crontab/i.test(r.out)))&&(key!=='ssh-remote'||/\bSSH_OK\b/.test(r.out))&&(key!=='cap-http'||/HTTP\/[\d.]+\s+\d{3}/.test(r.out)))}
+
