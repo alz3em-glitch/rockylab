@@ -7,5 +7,18 @@
 [dir=rtl] .lesson,[dir=rtl] .page{text-align:right}
 pre,code,.terminal,textarea#command{direction:ltr;text-align:left;unicode-bidi:plaintext}
 #language-toggle{white-space:nowrap;margin-inline-start:10px;min-height:38px}
+[dir=rtl] .before-command{text-align:right}
+.before-command{padding:14px 17px;border-inline-start:3px solid var(--red);background:#11161d;margin:18px 0}
+.before-command p{font-size:14px;line-height:1.9;margin:10px 0}
+header{flex-wrap:wrap;gap:16px}
+nav{flex:1;overflow-x:auto;white-space:nowrap;gap:18px}
+.practice-layout{display:grid;grid-template-columns:minmax(300px,1fr) minmax(350px,1.15fr);gap:24px;align-items:start}
+.practice-layout .terminal{height:560px;min-height:400px;margin:0;position:sticky;top:15px}
+.practice-layout .terminal pre{overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;min-height:200px}
+#practical-form{display:flex;flex-wrap:wrap;gap:8px;padding:12px;align-items:center}
+#practical-form textarea{flex:1;min-width:170px}
+.simulation-notice{padding:0 16px;font-size:13px}
+.lesson,.terminal{overflow-anchor:none}
+@media(max-width:800px){.practice-layout{display:flex;flex-direction:column}.practice-layout>section{width:100%}.practice-layout .terminal{position:static;order:0;height:450px}nav{width:100%;flex-basis:100%}}
 [dir=rtl] .task summary{direction:rtl}
 
